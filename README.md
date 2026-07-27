@@ -6,11 +6,30 @@ Build and internally validate XGBoost models for any-stage and severe ocular gra
 
 ## Folder structure
 
-- `src/ogvhd_prediction/`: modeling modules, split by responsibility.
-- `scripts/`: command-line entry points; no model logic.
-- `notebooks/`: interactive wrappers; no model logic.
-- `data/sample.xlsx`: 24 synthetic rows for schema checks only. Never train on it.
-- `tests/`: structural, import-safety, and release checks.
+```text
+.
+├── .github/workflows/ci.yml       CI lint, tests, and package build
+├── data/
+│   ├── README.md                  Synthetic-data limits
+│   └── sample.xlsx                Synthetic schema example
+├── notebooks/
+│   ├── xgboost_v2.ipynb           Primary interactive wrapper
+│   └── xgboost_v2_prophylaxis.ipynb  Prophylaxis interactive wrapper
+├── scripts/
+│   ├── run_primary.py             Primary command-line entry point
+│   └── run_prophylaxis.py         Prophylaxis command-line entry point
+├── src/
+│   ├── ogvhd_prediction/          Modeling pipeline modules
+│   ├── xgboost_v2.py              Legacy primary entry point
+│   └── xgboost_v2_prophylaxis.py  Legacy prophylaxis entry point
+├── tests/
+│   ├── test_release.py            Structure, safety, and regression checks
+│   └── legacy_ast_manifest.json   Archived algorithm signatures
+├── .gitignore                     Git allowlist and data exclusions
+├── README.md                      Project overview and run commands
+├── pyproject.toml                 Package and build metadata
+└── requirements.txt               Pinned runtime dependencies
+```
 
 ## Code structure
 

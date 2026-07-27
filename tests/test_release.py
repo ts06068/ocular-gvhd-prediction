@@ -64,6 +64,23 @@ class ReleaseTests(unittest.TestCase):
                 "## How to run",
             ],
         )
+        folder_structure = readme.split("## Folder structure\n\n", maxsplit=1)[1].split(
+            "\n\n## Code structure", maxsplit=1
+        )[0]
+        self.assertTrue(folder_structure.startswith("```text\n.\n"))
+        self.assertTrue(folder_structure.rstrip().endswith("```"))
+        for path in (
+            ".github/workflows/ci.yml",
+            "data/",
+            "notebooks/",
+            "scripts/",
+            "src/",
+            "tests/",
+            "pyproject.toml",
+            "requirements.txt",
+        ):
+            self.assertIn(path, folder_structure)
+
         how_to_run = readme.split("## How to run\n\n", maxsplit=1)[1]
         self.assertTrue(how_to_run.startswith("```powershell\n"))
         self.assertTrue(how_to_run.rstrip().endswith("```"))
@@ -71,7 +88,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("$env:XGB_V2_FROZEN_TEST_SPLIT_MANIFEST", how_to_run)
         self.assertIn("python scripts/run_primary.py", how_to_run)
         self.assertIn("python scripts/run_prophylaxis.py", how_to_run)
-        self.assertLessEqual(len(readme.splitlines()), 38)
+        self.assertLessEqual(len(readme.splitlines()), 60)
 
     def test_notebooks_are_thin_wrappers(self):
         paths = sorted((ROOT / "notebooks").glob("*.ipynb"))
