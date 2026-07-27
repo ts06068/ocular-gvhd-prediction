@@ -81,6 +81,9 @@ class ReleaseTests(unittest.TestCase):
         ):
             self.assertIn(path, folder_structure)
 
+        for path in sorted(PACKAGE.glob("*.py")):
+            self.assertIn(path.name, folder_structure)
+
         how_to_run = readme.split("## How to run\n\n", maxsplit=1)[1]
         self.assertTrue(how_to_run.startswith("```powershell\n"))
         self.assertTrue(how_to_run.rstrip().endswith("```"))
@@ -88,7 +91,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("$env:XGB_V2_FROZEN_TEST_SPLIT_MANIFEST", how_to_run)
         self.assertIn("python scripts/run_primary.py", how_to_run)
         self.assertIn("python scripts/run_prophylaxis.py", how_to_run)
-        self.assertLessEqual(len(readme.splitlines()), 60)
+        self.assertLessEqual(len(readme.splitlines()), 90)
 
     def test_notebooks_are_thin_wrappers(self):
         paths = sorted((ROOT / "notebooks").glob("*.ipynb"))

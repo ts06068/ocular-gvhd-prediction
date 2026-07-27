@@ -19,7 +19,30 @@ Build and internally validate XGBoost models for any-stage and severe ocular gra
 │   ├── run_primary.py             Primary command-line entry point
 │   └── run_prophylaxis.py         Prophylaxis command-line entry point
 ├── src/
-│   ├── ogvhd_prediction/          Modeling pipeline modules
+│   ├── ogvhd_prediction/          Modeling package
+│   │   ├── __init__.py            Public package API
+│   │   ├── runner.py              Analysis profile dispatcher
+│   │   ├── pipeline.py            Fixed stage orchestration
+│   │   ├── profiles.py            Primary and prophylaxis settings
+│   │   ├── config.py              Runtime paths, seeds, and options
+│   │   ├── data.py                Cohort loading and feature sets
+│   │   ├── targets.py             Landmark outcomes and risk sets
+│   │   ├── splitting.py           Patient-level split control
+│   │   ├── preprocessing.py       Fold-local filtering and imputation
+│   │   ├── tuning.py              XGBoost search and model selection
+│   │   ├── metrics.py             Metrics, thresholds, and calibration
+│   │   ├── evaluation.py          Frozen holdout evaluation
+│   │   ├── explainability.py      Training-fold SHAP ranking
+│   │   ├── simplified.py          Reduced-feature model evaluation
+│   │   ├── temporal.py            Temporal landmark ensembles
+│   │   ├── audit.py               Split and optimization audits
+│   │   ├── finalization.py        Final model and result artifacts
+│   │   ├── subgroups.py           Descriptive subgroup metrics
+│   │   ├── reporting.py           Performance summary tables
+│   │   ├── diagnostics.py         Diagnostic figures
+│   │   ├── panels.py              Cross-endpoint figure panels
+│   │   ├── metadata.py            Run configuration and provenance
+│   │   └── utils.py               Shared helpers and import facade
 │   ├── xgboost_v2.py              Legacy primary entry point
 │   └── xgboost_v2_prophylaxis.py  Legacy prophylaxis entry point
 ├── tests/
