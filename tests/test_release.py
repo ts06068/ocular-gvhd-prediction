@@ -1,12 +1,45 @@
 import ast
+import hashlib
+import importlib
 import json
+import os
+import sys
+import tempfile
 import unittest
+from collections import Counter
+from contextlib import contextmanager
 from pathlib import Path
 
 import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+PACKAGE = SRC / "ogvhd_prediction"
+LEGACY_MANIFEST = ROOT / "tests" / "legacy_ast_manifest.json"
+
+
+@contextmanager
+def isolated_package_imports():
+    """Expose the source tree while restoring import state after the check."""
+    prefix = "ogvhd_prediction"
+    previous_path = list(sys.path)
+    previous_modules = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == prefix or name.startswith(f"{prefix}.")
+    }
+    for name in previous_modules:
+        sys.modules.pop(name, None)
+    sys.path.insert(0, str(SRC))
+    try:
+        yield
+    finally:
+        sys.path[:] = previous_path
+        for name in list(sys.modules):
+            if name == prefix or name.startswith(f"{prefix}."):
+                sys.modules.pop(name, None)
+        sys.modules.update(previous_modules)
 
 
 class ReleaseTests(unittest.TestCase):
@@ -24,64 +57,321 @@ class ReleaseTests(unittest.TestCase):
         )
         self.assertLessEqual(len(readme.splitlines()), 24)
 
-    def test_notebook_structure_and_outputs(self):
-        for path in sorted((ROOT / "notebooks").glob("*.ipynb")):
+    def test_notebooks_are_thin_wrappers(self):
+        paths = sorted((ROOT / "notebooks").glob("*.ipynb"))
+        self.assertEqual(
+            [path.name for path in paths],
+            ["xgboost_v2.ipynb", "xgboost_v2_prophylaxis.ipynb"],
+        )
+
+        for path in paths:
             notebook = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(len(notebook["cells"]), 22)
-            for index in range(0, len(notebook["cells"]), 2):
-                markdown = notebook["cells"][index]
-                code = notebook["cells"][index + 1]
-                self.assertEqual(markdown["cell_type"], "markdown")
-                self.assertEqual(code["cell_type"], "code")
-                nonempty = [
-                    line.strip()
-                    for line in "".join(markdown["source"]).splitlines()
-                    if line.strip()
-                ]
-                self.assertEqual(len(nonempty), 2)
-                self.assertTrue(nonempty[0].startswith("#"))
-                self.assertEqual(code.get("outputs", []), [])
-                self.assertIsNone(code.get("execution_count"))
+            cells = notebook["cells"]
+            code_cells = [cell for cell in cells if cell["cell_type"] == "code"]
+            self.assertEqual(len(code_cells), 2, path.name)
+            self.assertEqual(len(cells), 4, path.name)
 
-    def test_python_sources_compile(self):
-        for path in sorted((ROOT / "src").glob("*.py")):
+            total_nonblank_code_lines = 0
+            for index in range(0, len(cells), 2):
+                markdown = cells[index]
+                code = cells[index + 1]
+                self.assertEqual(markdown["cell_type"], "markdown", path.name)
+                self.assertEqual(code["cell_type"], "code", path.name)
+
+                markdown_lines = "".join(markdown["source"]).splitlines()
+                self.assertEqual(len(markdown_lines), 2, path.name)
+                self.assertTrue(markdown_lines[0].strip().startswith("#"), path.name)
+                self.assertTrue(markdown_lines[1].strip(), path.name)
+                self.assertFalse(markdown_lines[1].strip().startswith("#"), path.name)
+
+                code_source = "".join(code["source"])
+                tree = ast.parse(code_source, filename=str(path))
+                forbidden = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                self.assertFalse(
+                    any(isinstance(node, forbidden) for node in ast.walk(tree)),
+                    f"Definitions belong in the package, not {path.name}",
+                )
+                total_nonblank_code_lines += sum(
+                    bool(line.strip()) for line in code_source.splitlines()
+                )
+                self.assertEqual(code.get("outputs", []), [], path.name)
+                self.assertIsNone(code.get("execution_count"), path.name)
+
+            self.assertLessEqual(total_nonblank_code_lines, 10, path.name)
+
+    def test_every_python_source_compiles_without_creating_pycache(self):
+        paths = sorted(ROOT.rglob("*.py"))
+        self.assertTrue(paths)
+        for path in paths:
             source = path.read_text(encoding="utf-8")
-            compile(source, str(path), "exec")
-            self.assertIn(
-                'RUN_BOOTSTRAP_CI = os.getenv("XGB_V2_RUN_BOOTSTRAP_CI", "0") == "1"',
-                source,
-            )
-            self.assertIn(
-                'SPLIT_SEED_SEARCH_ENABLED = os.getenv(\n'
-                '    "XGB_V2_SPLIT_SEED_SEARCH_ENABLED",\n'
-                '    "0",\n'
-                ') == "1"',
-                source,
-            )
+            compile(source, str(path), "exec", dont_inherit=True)
 
-    def test_notebook_and_python_sources_match(self):
-        for notebook_path in sorted((ROOT / "notebooks").glob("*.ipynb")):
-            notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
-            notebook_code = "\n\n".join(
-                "".join(cell["source"])
-                for cell in notebook["cells"]
-                if cell["cell_type"] == "code"
-            )
-            script_path = ROOT / "src" / f"{notebook_path.stem}.py"
-            notebook_ast = ast.dump(ast.parse(notebook_code), include_attributes=False)
-            script_ast = ast.dump(
-                ast.parse(script_path.read_text(encoding="utf-8")),
-                include_attributes=False,
-            )
-            self.assertEqual(notebook_ast, script_ast)
+    def test_legacy_algorithm_ast_is_preserved(self):
+        expected_manifest = json.loads(LEGACY_MANIFEST.read_text(encoding="utf-8"))
+        self.assertEqual(len(expected_manifest), 184)
+        expected = Counter(
+            (key.rsplit(":", 1)[0], digest) for key, digest in expected_manifest.items()
+        )
 
-    def test_sample_is_synthetic_schema_only(self):
+        actual = Counter()
+        for path in sorted(PACKAGE.glob("*.py")):
+            if path.name in {"profiles.py", "runner.py"}:
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in tree.body:
+                if not isinstance(
+                    node,
+                    (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+                ):
+                    continue
+                kind = "class" if isinstance(node, ast.ClassDef) else "function"
+                digest = hashlib.sha256(
+                    ast.dump(node, include_attributes=False).encode("utf-8")
+                ).hexdigest()
+                actual[(f"{kind}:{node.name}", digest)] += 1
+
+        self.assertEqual(sum(actual.values()), 184)
+        self.assertEqual(actual, expected)
+
+    def test_profile_defaults_preserve_exact_analysis_deltas(self):
+        expected = {
+            "key": ("primary", "prophylaxis"),
+            "model_profile_name": ("v2", "v2_prophylaxis"),
+            "default_output_dir": (
+                "outputs_xgboost_v2",
+                "outputs_xgboost_v2_prophylaxis",
+            ),
+            "development_split_seed_overrides": (
+                (
+                    ("oGVHD_any", 60),
+                    ("oGVHD_severe", 300),
+                    ("cGVHD_any", 500),
+                    ("cGVHD_severe", 1243),
+                ),
+                (
+                    ("oGVHD_any", 2503),
+                    ("oGVHD_severe", 2024),
+                    ("cGVHD_any", 2503),
+                    ("cGVHD_severe", 1243),
+                ),
+            ),
+            "optuna_trial_overrides": (
+                (
+                    ("oGVHD_any|Preoperative", 10),
+                    ("oGVHD_any|Post transplant D+30", 10),
+                    ("oGVHD_any|Post transplant D+60", 10),
+                    ("oGVHD_any|Post transplant D+90", 10),
+                    ("oGVHD_severe|Preoperative", 100),
+                    ("cGVHD_any|Preoperative", 30),
+                    ("cGVHD_any|Post transplant D+30", 100),
+                    ("cGVHD_any|Post transplant D+60", 100),
+                    ("cGVHD_any|Post transplant D+90", 100),
+                    ("cGVHD_severe|Preoperative", 100),
+                ),
+                (
+                    ("oGVHD_any|Preoperative", 10),
+                    ("oGVHD_any|Post transplant D+30", 10),
+                    ("oGVHD_any|Post transplant D+60", 10),
+                    ("oGVHD_any|Post transplant D+90", 10),
+                    ("oGVHD_severe|Preoperative", 100),
+                    ("cGVHD_any|Preoperative", 10),
+                    ("cGVHD_severe|Preoperative", 100),
+                ),
+            ),
+            "optuna_objective_metric": ("auroc", "auroc_auprc_lift"),
+            "validation_candidate_trial_overrides": (
+                (
+                    ("oGVHD_any|Preoperative", 30),
+                    ("oGVHD_any|Post transplant D+30", 30),
+                    ("oGVHD_any|Post transplant D+60", 30),
+                    ("oGVHD_any|Post transplant D+90", 30),
+                    ("oGVHD_severe|Preoperative", 30),
+                    ("cGVHD_any|Preoperative", 30),
+                    ("cGVHD_any|Post transplant D+30", 30),
+                    ("cGVHD_any|Post transplant D+60", 30),
+                    ("cGVHD_any|Post transplant D+90", 30),
+                    ("cGVHD_severe|Preoperative", 30),
+                ),
+                (),
+            ),
+            "ensemble_top_k_candidates": ((1, 2, 3, 4, 5, 8, 10), (1, 2, 3, 4, 5)),
+            "validation_selection_prior_min_class_count": (30, 10),
+            "performance_rescue_analyses": (
+                (
+                    "oGVHD_severe|Preoperative",
+                    "oGVHD_severe|Post transplant D+30",
+                    "oGVHD_severe|Post transplant D+60",
+                    "oGVHD_severe|Post transplant D+90",
+                    "cGVHD_any|Post transplant D+30",
+                    "cGVHD_any|Post transplant D+60",
+                    "cGVHD_any|Post transplant D+90",
+                    "cGVHD_severe|Preoperative",
+                    "cGVHD_severe|Post transplant D+90",
+                ),
+                (
+                    "oGVHD_severe|Preoperative",
+                    "oGVHD_severe|Post transplant D+30",
+                    "oGVHD_severe|Post transplant D+60",
+                ),
+            ),
+            "validation_model_selection_metric": ("auroc", "auroc_auprc_lift"),
+            "dual_discrimination_selection": (False, True),
+            "simplified_optuna_trial_overrides": (
+                (("oGVHD_any|Post transplant D+60", 50),),
+                (),
+            ),
+            "simplified_validation_candidate_trial_overrides": (
+                (("oGVHD_any|Post transplant D+60", 10),),
+                (),
+            ),
+            "include_prophylaxis": (False, True),
+        }
+
+        with isolated_package_imports():
+            profiles = importlib.import_module("ogvhd_prediction.profiles")
+            primary = profiles.PRIMARY
+            prophylaxis = profiles.PROPHYLAXIS
+            actual = {
+                name: (getattr(primary, name), getattr(prophylaxis, name))
+                for name in primary.__dataclass_fields__
+                if getattr(primary, name) != getattr(prophylaxis, name)
+            }
+
+        self.assertEqual(actual, expected)
+
+    def test_package_public_imports_are_data_and_side_effect_free(self):
+        with tempfile.TemporaryDirectory() as temp_dir, isolated_package_imports():
+            previous_cwd = Path.cwd()
+            os.chdir(temp_dir)
+            try:
+                before = list(Path(temp_dir).iterdir())
+                package = importlib.import_module("ogvhd_prediction")
+                profiles = importlib.import_module("ogvhd_prediction.profiles")
+                runner = importlib.import_module("ogvhd_prediction.runner")
+                after = list(Path(temp_dir).iterdir())
+                loaded = {
+                    name
+                    for name in sys.modules
+                    if name == "ogvhd_prediction"
+                    or name.startswith("ogvhd_prediction.")
+                }
+            finally:
+                os.chdir(previous_cwd)
+
+            self.assertEqual(before, after)
+            self.assertEqual(
+                loaded,
+                {
+                    "ogvhd_prediction",
+                    "ogvhd_prediction.profiles",
+                    "ogvhd_prediction.runner",
+                },
+            )
+            self.assertTrue(callable(package.run_analysis))
+            self.assertTrue(callable(profiles.get_profile))
+            self.assertTrue(callable(runner.run_analysis))
+
+    def test_package_modules_and_entry_points_are_small(self):
+        modules = sorted(PACKAGE.glob("*.py"))
+        self.assertTrue(modules)
+        for path in modules:
+            line_count = len(path.read_text(encoding="utf-8").splitlines())
+            self.assertLessEqual(line_count, 1_500, path.name)
+
+        entry_points = sorted(SRC.glob("*.py")) + sorted(
+            (ROOT / "scripts").glob("*.py")
+        )
+        self.assertEqual(len(entry_points), 4)
+        for path in entry_points:
+            line_count = len(path.read_text(encoding="utf-8").splitlines())
+            self.assertLessEqual(line_count, 12, str(path.relative_to(ROOT)))
+
+    def test_sample_is_synthetic_and_matches_the_model_schema(self):
         path = ROOT / "data" / "sample.xlsx"
-        sample = pd.read_excel(path, sheet_name="Sheet1")
+        self.assertTrue(path.is_file())
+        with pd.ExcelFile(path) as workbook:
+            self.assertEqual(workbook.sheet_names, ["Sheet1"])
+            sample = pd.read_excel(workbook, sheet_name="Sheet1")
+
         self.assertEqual(sample.shape, (24, 93))
+        self.assertEqual(len(sample.columns), len(set(sample.columns)))
+
+        required = {
+            "Patient ID",
+            "Research Patient ID",
+            "Transplant Date",
+            "Transplant Date raw",
+            "Outcome transplant date",
+            "Outcome match status",
+            "Outcome label rule",
+            "Age",
+            "Male Sex",
+            "Sex",
+            "Diagnosis",
+            "Graft source",
+            "Myeloablating regimen MAC vs RIC",
+            "Prophylaxis regimen",
+            "Related",
+            "ABO matching",
+            "CD34",
+            "Donor T cell number",
+            "Death_3M",
+        }
+        for outcome in ("aGVHD", "cGVHD", "oGVHD"):
+            required.update(
+                {
+                    f"{outcome} Stage",
+                    f"Previous {outcome} Stage",
+                    f"{outcome} onset date",
+                    f"{outcome} max date",
+                    f"{outcome} max ocular score",
+                    f"{outcome} label source",
+                }
+            )
+        for locus in ("A", "B", "C", "DR"):
+            required.add(f"HLA-{locus} antigen matched")
+            required.add(f"HLA-{locus} allele matched")
+        for laboratory in (
+            "PLT_count",
+            "PDW",
+            "PDW_pct",
+            "AST_GOT",
+            "Total_cholesterol",
+            "CRP",
+            "ESR",
+            "Ferritin",
+            "HDL_cholesterol",
+            "Triglyceride",
+            "LDL_cholesterol",
+        ):
+            required.update(
+                {
+                    f"{laboratory}_baseline",
+                    f"{laboratory}+30",
+                    f"{laboratory}+60",
+                    f"{laboratory}+90",
+                }
+            )
+        self.assertTrue(
+            required.issubset(sample.columns), sorted(required - set(sample.columns))
+        )
+
         self.assertTrue(sample["Patient ID"].astype(str).str.startswith("SYN-").all())
-        self.assertTrue(sample["Research Patient ID"].astype(str).str.startswith("SYN-R-").all())
-        self.assertTrue((pd.to_datetime(sample["Transplant Date"]).dt.year >= 2035).all())
+        self.assertTrue(
+            sample["Research Patient ID"].astype(str).str.startswith("SYN-R-").all()
+        )
+        self.assertTrue(sample["DoB"].astype(str).str.startswith("SYNTHETIC-").all())
+        self.assertTrue(
+            (pd.to_datetime(sample["Transplant Date"]).dt.year >= 2035).all()
+        )
+        for outcome in ("aGVHD", "cGVHD", "oGVHD"):
+            self.assertTrue(
+                sample[f"{outcome} label source"]
+                .astype(str)
+                .str.casefold()
+                .eq("synthetic")
+                .all()
+            )
 
 
 if __name__ == "__main__":

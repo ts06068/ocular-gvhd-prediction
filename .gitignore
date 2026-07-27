@@ -2,11 +2,20 @@
 !/.gitignore
 !/README.md
 !/requirements.txt
+!/pyproject.toml
 
 !/src/
 /src/*
 !/src/xgboost_v2.py
 !/src/xgboost_v2_prophylaxis.py
+!/src/ogvhd_prediction/
+/src/ogvhd_prediction/*
+!/src/ogvhd_prediction/*.py
+
+!/scripts/
+/scripts/*
+!/scripts/run_primary.py
+!/scripts/run_prophylaxis.py
 
 !/notebooks/
 /notebooks/*
@@ -16,6 +25,7 @@
 !/tests/
 /tests/*
 !/tests/test_release.py
+!/tests/legacy_ast_manifest.json
 
 !/data/
 /data/*
