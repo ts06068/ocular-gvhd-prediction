@@ -1,6 +1,5 @@
 """Prespecified subgroup analyses."""
 
-from . import reporting as _reporting  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     average_precision_score,
     display,
@@ -520,62 +519,76 @@ def calculate_test_subgroup_metrics(predictions, source_data):
     return result
 
 
-holdout_subgroup_metrics = calculate_test_subgroup_metrics(
-    holdout_predictions if RUN_HOLDOUT_EVALUATION else pd.DataFrame(),
-    df,
-)
-holdout_subgroup_metric_summary = (
-    holdout_subgroup_metrics.melt(
-        id_vars=SUBGROUP_RESULT_ID_COLUMNS,
-        value_vars=SUBGROUP_METRIC_COLUMNS,
-        var_name="metric",
-        value_name="value",
-    )
-    if not holdout_subgroup_metrics.empty
-    else pd.DataFrame(columns=SUBGROUP_RESULT_ID_COLUMNS + ["metric", "value"])
-)
-if not holdout_subgroup_metric_summary.empty:
-    for bound in [
-        "ci_lower",
-        "ci_upper",
-        "bootstrap_valid_resamples",
-        "bootstrap_status",
-    ]:
-        bound_columns = [f"{metric}_{bound}" for metric in SUBGROUP_CI_METRICS]
-        bound_summary = holdout_subgroup_metrics.melt(
-            id_vars=SUBGROUP_RESULT_ID_COLUMNS,
-            value_vars=bound_columns,
-            var_name="metric",
-            value_name=bound,
-        )
-        bound_summary["metric"] = bound_summary["metric"].str.removesuffix(f"_{bound}")
-        holdout_subgroup_metric_summary = holdout_subgroup_metric_summary.merge(
-            bound_summary,
-            on=SUBGROUP_RESULT_ID_COLUMNS + ["metric"],
-            how="left",
-        )
-holdout_subgroup_definitions = pd.DataFrame(
-    {
-        "subgroup_name": SUBGROUP_ORDER,
-        "definition": [SUBGROUP_DEFINITIONS[name] for name in SUBGROUP_ORDER],
-    }
-)
+def run_stage():
+    """Run and save the prespecified subgroup analyses."""
+    global holdout_subgroup_definitions, holdout_subgroup_metric_summary
+    global holdout_subgroup_metrics
 
-holdout_subgroup_metrics.to_csv(
-    OUTPUT_DIR / "holdout_subgroup_metrics.csv",
-    index=False,
-)
-holdout_subgroup_metric_summary.to_csv(
-    OUTPUT_DIR / "holdout_subgroup_metric_summary.csv",
-    index=False,
-)
-holdout_subgroup_definitions.to_csv(
-    OUTPUT_DIR / "holdout_subgroup_definitions.csv",
-    index=False,
-)
-print(
-    "Saved test subgroup results: "
-    f"{len(holdout_subgroup_metrics):,} strata rows and "
-    f"{len(holdout_subgroup_metric_summary):,} long-format metric rows."
-)
-display(holdout_subgroup_metrics)
+    holdout_subgroup_metrics = calculate_test_subgroup_metrics(
+        holdout_predictions if RUN_HOLDOUT_EVALUATION else pd.DataFrame(),
+        df,
+    )
+
+    holdout_subgroup_metric_summary = (
+        holdout_subgroup_metrics.melt(
+            id_vars=SUBGROUP_RESULT_ID_COLUMNS,
+            value_vars=SUBGROUP_METRIC_COLUMNS,
+            var_name="metric",
+            value_name="value",
+        )
+        if not holdout_subgroup_metrics.empty
+        else pd.DataFrame(columns=SUBGROUP_RESULT_ID_COLUMNS + ["metric", "value"])
+    )
+
+    if not holdout_subgroup_metric_summary.empty:
+        for bound in [
+            "ci_lower",
+            "ci_upper",
+            "bootstrap_valid_resamples",
+            "bootstrap_status",
+        ]:
+            bound_columns = [f"{metric}_{bound}" for metric in SUBGROUP_CI_METRICS]
+            bound_summary = holdout_subgroup_metrics.melt(
+                id_vars=SUBGROUP_RESULT_ID_COLUMNS,
+                value_vars=bound_columns,
+                var_name="metric",
+                value_name=bound,
+            )
+            bound_summary["metric"] = bound_summary["metric"].str.removesuffix(
+                f"_{bound}"
+            )
+            holdout_subgroup_metric_summary = holdout_subgroup_metric_summary.merge(
+                bound_summary,
+                on=SUBGROUP_RESULT_ID_COLUMNS + ["metric"],
+                how="left",
+            )
+
+    holdout_subgroup_definitions = pd.DataFrame(
+        {
+            "subgroup_name": SUBGROUP_ORDER,
+            "definition": [SUBGROUP_DEFINITIONS[name] for name in SUBGROUP_ORDER],
+        }
+    )
+
+    holdout_subgroup_metrics.to_csv(
+        OUTPUT_DIR / "holdout_subgroup_metrics.csv",
+        index=False,
+    )
+
+    holdout_subgroup_metric_summary.to_csv(
+        OUTPUT_DIR / "holdout_subgroup_metric_summary.csv",
+        index=False,
+    )
+
+    holdout_subgroup_definitions.to_csv(
+        OUTPUT_DIR / "holdout_subgroup_definitions.csv",
+        index=False,
+    )
+
+    print(
+        "Saved test subgroup results: "
+        f"{len(holdout_subgroup_metrics):,} strata rows and "
+        f"{len(holdout_subgroup_metric_summary):,} long-format metric rows."
+    )
+
+    display(holdout_subgroup_metrics)

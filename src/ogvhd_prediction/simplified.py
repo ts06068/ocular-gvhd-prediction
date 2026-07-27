@@ -1,6 +1,5 @@
 """Simplified-model selection and retuning."""
 
-from . import temporal as _temporal  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     average_precision_score,
     cloudpickle,

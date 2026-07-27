@@ -1,6 +1,5 @@
 """Final fitting and SHAP feature attribution."""
 
-from . import tuning as _tuning  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     DMatrix,
     Parallel,

@@ -1,6 +1,5 @@
 """Landmark outcome and risk-set definitions."""
 
-from . import data as _data  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     display,
     np,
@@ -113,48 +112,64 @@ def min_class_count(y):
     return int(counts.min())
 
 
-target_summary = []
-for target_name, spec in TARGET_DEFINITIONS.items():
-    if target_name not in TARGETS_TO_RUN:
-        continue
-    for feature_set in FEATURE_SETS:
-        masks = make_target_masks(
-            stage_column=spec["stage_column"],
-            positive_rule=spec["positive_rule"],
-            exclude_control_death_3m=spec.get("exclude_control_death_3m", False),
-            event_date_column=spec.get("event_date_column"),
-            landmark_day=target_landmark_day_for_policy(feature_set["landmark_day"]),
-        )
-        y_target = masks["y_full"].loc[masks["keep"]].astype(int).reset_index(drop=True)
-        target_summary.append(
-            {
-                "target": target_name,
-                "feature_set": feature_set["feature_set"],
-                "landmark_day": feature_set["landmark_day"],
-                "stage_column": spec["stage_column"],
-                "positive_rule": spec["positive_rule"],
-                "event_date_column": spec.get("event_date_column"),
-                "target_timing_policy": TARGET_TIMING_POLICY,
-                "exclude_control_death_3m": bool(
-                    spec.get("exclude_control_death_3m", False)
+def run_stage():
+    """Build and save the target summary."""
+    global target_summary
+
+    target_summary = []
+
+    for target_name, spec in TARGET_DEFINITIONS.items():
+        if target_name not in TARGETS_TO_RUN:
+            continue
+        for feature_set in FEATURE_SETS:
+            masks = make_target_masks(
+                stage_column=spec["stage_column"],
+                positive_rule=spec["positive_rule"],
+                exclude_control_death_3m=spec.get("exclude_control_death_3m", False),
+                event_date_column=spec.get("event_date_column"),
+                landmark_day=target_landmark_day_for_policy(
+                    feature_set["landmark_day"]
                 ),
-                "stage_nonmissing_n": int(masks["base_keep"].sum()),
-                "pre_landmark_or_current_target_event_excluded_n": int(
-                    masks["prior_or_current_target_event"].sum()
-                ),
-                "positive_unknown_timing_excluded_n": int(
-                    masks["positive_with_unknown_timing"].sum()
-                ),
-                "excluded_control_death_3m_n": int(
-                    masks["excluded_control_death_3m"].sum()
-                ),
-                "n": len(y_target),
-                "positive_n": int(y_target.sum()),
-                "control_n": int(len(y_target) - y_target.sum()),
-                "positive_rate": float(y_target.mean()) if len(y_target) else np.nan,
-                "min_class_count": min_class_count(y_target) if len(y_target) else 0,
-            }
-        )
-target_summary = pd.DataFrame(target_summary)
-display(target_summary)
-target_summary.to_csv(OUTPUT_DIR / "target_summary.csv", index=False)
+            )
+            y_target = (
+                masks["y_full"].loc[masks["keep"]].astype(int).reset_index(drop=True)
+            )
+            target_summary.append(
+                {
+                    "target": target_name,
+                    "feature_set": feature_set["feature_set"],
+                    "landmark_day": feature_set["landmark_day"],
+                    "stage_column": spec["stage_column"],
+                    "positive_rule": spec["positive_rule"],
+                    "event_date_column": spec.get("event_date_column"),
+                    "target_timing_policy": TARGET_TIMING_POLICY,
+                    "exclude_control_death_3m": bool(
+                        spec.get("exclude_control_death_3m", False)
+                    ),
+                    "stage_nonmissing_n": int(masks["base_keep"].sum()),
+                    "pre_landmark_or_current_target_event_excluded_n": int(
+                        masks["prior_or_current_target_event"].sum()
+                    ),
+                    "positive_unknown_timing_excluded_n": int(
+                        masks["positive_with_unknown_timing"].sum()
+                    ),
+                    "excluded_control_death_3m_n": int(
+                        masks["excluded_control_death_3m"].sum()
+                    ),
+                    "n": len(y_target),
+                    "positive_n": int(y_target.sum()),
+                    "control_n": int(len(y_target) - y_target.sum()),
+                    "positive_rate": float(y_target.mean())
+                    if len(y_target)
+                    else np.nan,
+                    "min_class_count": min_class_count(y_target)
+                    if len(y_target)
+                    else 0,
+                }
+            )
+
+    target_summary = pd.DataFrame(target_summary)
+
+    display(target_summary)
+
+    target_summary.to_csv(OUTPUT_DIR / "target_summary.csv", index=False)

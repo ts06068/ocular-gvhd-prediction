@@ -1,6 +1,5 @@
 """Optimization and split-seed audit helpers."""
 
-from . import simplified as _simplified  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     Path,
     json,

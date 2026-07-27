@@ -1,14 +1,17 @@
 import ast
+import builtins
 import hashlib
 import importlib
 import json
 import os
 import sys
 import tempfile
+import types
 import unittest
 from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
+from unittest import mock
 
 import pandas as pd
 
@@ -24,6 +27,7 @@ def isolated_package_imports():
     """Expose the source tree while restoring import state after the check."""
     prefix = "ogvhd_prediction"
     previous_path = list(sys.path)
+    previous_bytecode_setting = sys.dont_write_bytecode
     previous_modules = {
         name: module
         for name, module in sys.modules.items()
@@ -32,10 +36,12 @@ def isolated_package_imports():
     for name in previous_modules:
         sys.modules.pop(name, None)
     sys.path.insert(0, str(SRC))
+    sys.dont_write_bytecode = True
     try:
         yield
     finally:
         sys.path[:] = previous_path
+        sys.dont_write_bytecode = previous_bytecode_setting
         for name in list(sys.modules):
             if name == prefix or name.startswith(f"{prefix}."):
                 sys.modules.pop(name, None)
@@ -130,8 +136,11 @@ class ReleaseTests(unittest.TestCase):
                 ).hexdigest()
                 actual[(f"{kind}:{node.name}", digest)] += 1
 
-        self.assertEqual(sum(actual.values()), 184)
-        self.assertEqual(actual, expected)
+        missing = expected - actual
+        self.assertFalse(
+            missing,
+            f"Legacy definitions missing or changed: {missing}",
+        )
 
     def test_profile_defaults_preserve_exact_analysis_deltas(self):
         expected = {
@@ -270,6 +279,182 @@ class ReleaseTests(unittest.TestCase):
             self.assertTrue(callable(package.run_analysis))
             self.assertTrue(callable(profiles.get_profile))
             self.assertTrue(callable(runner.run_analysis))
+
+    def test_internal_module_imports_do_not_read_write_or_train(self):
+        import cloudpickle
+        import joblib
+        import matplotlib.figure
+        import matplotlib.pyplot
+        import optuna
+        import sklearn.model_selection
+        import sklearn.pipeline
+        import xgboost
+
+        def forbidden(operation):
+            return mock.Mock(
+                side_effect=AssertionError(
+                    f"Package import attempted forbidden operation: {operation}"
+                )
+            )
+
+        real_open = builtins.open
+
+        def read_only_open(file, mode="r", *args, **kwargs):
+            if any(flag in mode for flag in ("w", "a", "x", "+")):
+                raise AssertionError(
+                    f"Package import attempted to open an output file: {file}"
+                )
+            return real_open(file, mode, *args, **kwargs)
+
+        module_names = sorted(
+            path.stem for path in PACKAGE.glob("*.py") if path.name != "__init__.py"
+        )
+        self.assertTrue(module_names)
+
+        with tempfile.TemporaryDirectory() as temp_dir, isolated_package_imports():
+            temp_path = Path(temp_dir)
+            environment = {
+                "OGVHD_PROFILE": "primary",
+                "XGB_V2_DATA_PATH": str(temp_path / "must-not-be-read.xlsx"),
+                "XGB_V2_FROZEN_TEST_SPLIT_MANIFEST": str(
+                    temp_path / "must-not-be-read.csv"
+                ),
+                "XGB_V2_OUTPUT_DIR": str(temp_path / "must-not-be-created"),
+            }
+            previous_cwd = Path.cwd()
+            os.chdir(temp_path)
+            try:
+                before = list(temp_path.iterdir())
+                with (
+                    mock.patch.dict(os.environ, environment, clear=False),
+                    mock.patch.object(Path, "read_bytes", forbidden("Path.read_bytes")),
+                    mock.patch.object(
+                        Path, "write_bytes", forbidden("Path.write_bytes")
+                    ),
+                    mock.patch.object(Path, "write_text", forbidden("Path.write_text")),
+                    mock.patch.object(Path, "mkdir", forbidden("Path.mkdir")),
+                    mock.patch.object(pd, "read_excel", forbidden("pandas.read_excel")),
+                    mock.patch.object(pd, "read_csv", forbidden("pandas.read_csv")),
+                    mock.patch.object(
+                        pd.DataFrame, "to_csv", forbidden("DataFrame.to_csv")
+                    ),
+                    mock.patch.object(
+                        matplotlib.figure.Figure,
+                        "savefig",
+                        forbidden("Figure.savefig"),
+                    ),
+                    mock.patch.object(
+                        sklearn.pipeline.Pipeline,
+                        "fit",
+                        forbidden("Pipeline.fit"),
+                    ),
+                    mock.patch.object(
+                        xgboost.XGBClassifier,
+                        "fit",
+                        forbidden("XGBClassifier.fit"),
+                    ),
+                    mock.patch.object(
+                        optuna.study.Study,
+                        "optimize",
+                        forbidden("Study.optimize"),
+                    ),
+                    mock.patch.object(
+                        joblib.Parallel,
+                        "__call__",
+                        forbidden("Parallel.__call__"),
+                    ),
+                    mock.patch.object(
+                        sklearn.model_selection,
+                        "cross_validate",
+                        forbidden("cross_validate"),
+                    ),
+                    mock.patch.object(
+                        cloudpickle, "dump", forbidden("cloudpickle.dump")
+                    ),
+                    mock.patch.object(builtins, "open", side_effect=read_only_open),
+                ):
+                    importlib.import_module("ogvhd_prediction")
+                    for module_name in module_names:
+                        importlib.import_module(f"ogvhd_prediction.{module_name}")
+                after = list(temp_path.iterdir())
+            finally:
+                os.chdir(previous_cwd)
+
+        self.assertEqual(before, after)
+
+    def test_runner_calls_pipeline_for_each_same_profile_invocation(self):
+        first_result = object()
+        second_result = object()
+        run_pipeline = mock.Mock(side_effect=[first_result, second_result])
+        fake_pipeline = types.ModuleType("ogvhd_prediction.pipeline")
+        fake_pipeline.run_pipeline = run_pipeline
+        fake_metadata = types.ModuleType("ogvhd_prediction.metadata")
+
+        with isolated_package_imports():
+            sys.modules[fake_pipeline.__name__] = fake_pipeline
+            sys.modules[fake_metadata.__name__] = fake_metadata
+            runner = importlib.import_module("ogvhd_prediction.runner")
+            with mock.patch.dict(os.environ, {"OGVHD_PROFILE": "primary"}, clear=False):
+                actual_first = runner.run_analysis("primary")
+                actual_second = runner.run_analysis("primary")
+
+        self.assertIs(actual_first, first_result)
+        self.assertIs(actual_second, second_result)
+        self.assertEqual(run_pipeline.call_count, 2)
+        for call in run_pipeline.call_args_list:
+            self.assertEqual(len(call.args), 1)
+            self.assertFalse(call.kwargs)
+            self.assertEqual(getattr(call.args[0], "key", call.args[0]), "primary")
+
+    def test_pipeline_runs_named_stages_in_order(self):
+        with isolated_package_imports():
+            pipeline = importlib.import_module("ogvhd_prediction.pipeline")
+            profiles = importlib.import_module("ogvhd_prediction.profiles")
+            events = []
+            run_config = {"model_profile": "v2"}
+            modules = {}
+
+            for name in pipeline.MODULE_ORDER:
+                module = types.SimpleNamespace()
+                if name == "config":
+                    module.OUTPUT_DIR = Path("output")
+                    module.initialize_runtime = lambda stage=name: events.append(
+                        f"run:{stage}"
+                    )
+                elif name in pipeline.EXECUTION_STAGES:
+                    module.run_stage = lambda stage=name: events.append(f"run:{stage}")
+                if name == "metadata":
+                    module.run_config = run_config
+                modules[name] = module
+
+            def import_stage(full_name):
+                name = full_name.rsplit(".", 1)[-1]
+                events.append(f"import:{name}")
+                return modules[name]
+
+            with (
+                mock.patch.object(
+                    pipeline.importlib,
+                    "import_module",
+                    side_effect=import_stage,
+                ),
+                mock.patch.object(
+                    pipeline,
+                    "_clear_runtime_modules",
+                    side_effect=lambda: events.append("clear"),
+                ),
+            ):
+                result = pipeline.run_pipeline(profiles.PRIMARY)
+
+        expected = ["clear"]
+        for name in pipeline.MODULE_ORDER:
+            expected.append(f"import:{name}")
+            if name == "config" or name in pipeline.EXECUTION_STAGES:
+                expected.append(f"run:{name}")
+        self.assertEqual(events, expected)
+        self.assertIs(result.profile, profiles.PRIMARY)
+        self.assertEqual(result.output_directory, "output")
+        self.assertIs(result.run_config, run_config)
 
     def test_package_modules_and_entry_points_are_small(self):
         modules = sorted(PACKAGE.glob("*.py"))

@@ -1,6 +1,5 @@
 """Hyperparameter search and model-selection helpers."""
 
-from . import splitting as _splitting  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     OrderedDict,
     Parallel,
@@ -1282,7 +1281,7 @@ def compute_tuning_cv_scores(
 
 CACHED_TUNING_CV_SCORES = (
     PIPELINE_MEMORY.cache(compute_tuning_cv_scores)
-    if PIPELINE_CACHE_ENABLED
+    if PIPELINE_CACHE_ENABLED and PIPELINE_MEMORY is not None
     else compute_tuning_cv_scores
 )
 

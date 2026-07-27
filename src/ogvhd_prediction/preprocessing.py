@@ -1,6 +1,5 @@
 """Fold-safe preprocessing and estimator pipelines."""
 
-from . import metrics as _metrics  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     BaseEstimator,
     IterativeImputer,

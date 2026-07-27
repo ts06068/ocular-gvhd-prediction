@@ -1,6 +1,5 @@
 """Cross-endpoint panel plots."""
 
-from . import diagnostics as _diagnostics  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     Line2D,
     Normalize,
@@ -584,5 +583,8 @@ def save_all_panel_plots():
             save_gvhd_shap_panel(gvhd_label, targets)
 
 
-if RUN_HOLDOUT_EVALUATION and not holdout_predictions.empty:
-    save_all_panel_plots()
+def run_stage():
+    """Generate the cross-endpoint panel plots."""
+
+    if RUN_HOLDOUT_EVALUATION and not holdout_predictions.empty:
+        save_all_panel_plots()

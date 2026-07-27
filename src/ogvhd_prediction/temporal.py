@@ -1,6 +1,5 @@
 """Temporal landmark ensemble evaluation."""
 
-from . import explainability as _explainability  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     OrderedDict,
     Path,

@@ -1,6 +1,5 @@
 """Endpoint diagnostic plots."""
 
-from . import subgroups as _subgroups  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     Line2D,
     OrderedDict,
@@ -81,30 +80,6 @@ PANEL_SHAP_FEATURE_FONTSIZE = int(os.getenv("XGB_V2_PANEL_SHAP_FEATURE_FONTSIZE"
 PANEL_SHAP_LABEL_WRAP = int(os.getenv("XGB_V2_PANEL_SHAP_LABEL_WRAP", "26"))
 PANEL_SHAP_CMAP = shap.plots.colors.red_blue
 
-plt.rcParams["font.family"] = PLOT_FONT_FAMILY
-plt.rcParams["font.sans-serif"] = [PLOT_FONT_FAMILY]
-plt.rcParams["font.size"] = 15
-plt.rcParams["axes.titlesize"] = 18
-plt.rcParams["axes.labelsize"] = 16
-plt.rcParams["xtick.labelsize"] = 14
-plt.rcParams["ytick.labelsize"] = 14
-plt.rcParams["legend.fontsize"] = 13
-plt.rcParams["figure.titlesize"] = 18
-plt.rcParams["legend.title_fontsize"] = 13
-plt.rcParams["axes.titleweight"] = "semibold"
-plt.rcParams["axes.labelweight"] = "normal"
-plt.rcParams["axes.spines.top"] = False
-plt.rcParams["axes.spines.right"] = False
-plt.rcParams["axes.linewidth"] = 1.0
-plt.rcParams["axes.edgecolor"] = "#222222"
-plt.rcParams["axes.facecolor"] = "white"
-plt.rcParams["figure.facecolor"] = "white"
-plt.rcParams["savefig.facecolor"] = "white"
-plt.rcParams["savefig.edgecolor"] = "white"
-plt.rcParams["grid.color"] = "#D0D0D0"
-plt.rcParams["grid.alpha"] = 0.5
-plt.rcParams["grid.linewidth"] = 0.6
-plt.rcParams["lines.linewidth"] = 2.2
 
 TARGET_DISPLAY_NAMES = {
     "aGVHD_any": "any-stage aGVHD",
@@ -1049,66 +1024,120 @@ def save_shap_feature_importance_plot(
     show_plot()
 
 
-if RUN_HOLDOUT_EVALUATION and not holdout_predictions.empty:
-    for target in TARGETS_TO_RUN:
-        save_endpoint_curve_grid(target, "roc")
-        save_endpoint_curve_grid(target, "pr")
-        save_endpoint_decision_curve_grid(target)
-if RUN_HOLDOUT_EVALUATION and not holdout_predictions.empty:
-    calibration_rows = []
-    test_predictions = holdout_predictions.loc[
-        holdout_predictions["dataset_split"] == "test"
-    ]
-    test_predictions = ensure_model_variant_column(test_predictions)
-    for (target, feature_set, model_variant), group in test_predictions.groupby(
-        [
-            "target",
-            "feature_set",
-            "model_variant",
+def run_stage():
+    """Configure plotting and generate endpoint diagnostics."""
+
+    plt.rcParams["font.family"] = PLOT_FONT_FAMILY
+
+    plt.rcParams["font.sans-serif"] = [PLOT_FONT_FAMILY]
+
+    plt.rcParams["font.size"] = 15
+
+    plt.rcParams["axes.titlesize"] = 18
+
+    plt.rcParams["axes.labelsize"] = 16
+
+    plt.rcParams["xtick.labelsize"] = 14
+
+    plt.rcParams["ytick.labelsize"] = 14
+
+    plt.rcParams["legend.fontsize"] = 13
+
+    plt.rcParams["figure.titlesize"] = 18
+
+    plt.rcParams["legend.title_fontsize"] = 13
+
+    plt.rcParams["axes.titleweight"] = "semibold"
+
+    plt.rcParams["axes.labelweight"] = "normal"
+
+    plt.rcParams["axes.spines.top"] = False
+
+    plt.rcParams["axes.spines.right"] = False
+
+    plt.rcParams["axes.linewidth"] = 1.0
+
+    plt.rcParams["axes.edgecolor"] = "#222222"
+
+    plt.rcParams["axes.facecolor"] = "white"
+
+    plt.rcParams["figure.facecolor"] = "white"
+
+    plt.rcParams["savefig.facecolor"] = "white"
+
+    plt.rcParams["savefig.edgecolor"] = "white"
+
+    plt.rcParams["grid.color"] = "#D0D0D0"
+
+    plt.rcParams["grid.alpha"] = 0.5
+
+    plt.rcParams["grid.linewidth"] = 0.6
+
+    plt.rcParams["lines.linewidth"] = 2.2
+
+    if RUN_HOLDOUT_EVALUATION and not holdout_predictions.empty:
+        for target in TARGETS_TO_RUN:
+            save_endpoint_curve_grid(target, "roc")
+            save_endpoint_curve_grid(target, "pr")
+            save_endpoint_decision_curve_grid(target)
+
+    if RUN_HOLDOUT_EVALUATION and not holdout_predictions.empty:
+        calibration_rows = []
+        test_predictions = holdout_predictions.loc[
+            holdout_predictions["dataset_split"] == "test"
         ]
-    ):
-        cal = calibration_points(
-            group["y_true"],
-            group["calibration_probability"],
-            PLOT_CALIBRATION_N_BINS,
-        )
-        calibration_ece = expected_calibration_error(
-            group["y_true"],
-            group["calibration_probability"],
-            CALIBRATION_N_BINS,
-        )
-        cal.insert(0, "target", target)
-        cal.insert(1, "feature_set", feature_set)
-        cal.insert(2, "model_variant", model_variant)
-        cal.insert(3, "calibration_ece", calibration_ece)
-        calibration_rows.extend(cal.to_dict("records"))
-    calibration_table = pd.DataFrame(calibration_rows)
-    calibration_table.to_csv(OUTPUT_DIR / "holdout_calibration_points.csv", index=False)
-
-    for target in TARGETS_TO_RUN:
-        save_endpoint_calibration_grid(target, calibration_table)
-
-    if RUN_FINAL_MODELS and not holdout_model_summary.empty:
-        for _, model_row in holdout_model_summary.iterrows():
-            save_shap_feature_importance_plot(
-                model_row["target"],
-                model_row["feature_set"],
-                model_row.get("model_variant", MODEL_VARIANT_ORIGINAL),
+        test_predictions = ensure_model_variant_column(test_predictions)
+        for (target, feature_set, model_variant), group in test_predictions.groupby(
+            [
+                "target",
+                "feature_set",
+                "model_variant",
+            ]
+        ):
+            cal = calibration_points(
+                group["y_true"],
+                group["calibration_probability"],
+                PLOT_CALIBRATION_N_BINS,
             )
-elif RUN_HOLDOUT_EVALUATION:
-    pd.DataFrame(
-        columns=[
-            "target",
-            "feature_set",
-            "model_variant",
-            "mean_predicted_probability",
-            "observed_event_rate",
-            "observed_event_rate_lower",
-            "observed_event_rate_upper",
-            "event_n",
-            "n",
-            "ci_level",
-            "ci_method",
-            "calibration_ece",
-        ]
-    ).to_csv(OUTPUT_DIR / "holdout_calibration_points.csv", index=False)
+            calibration_ece = expected_calibration_error(
+                group["y_true"],
+                group["calibration_probability"],
+                CALIBRATION_N_BINS,
+            )
+            cal.insert(0, "target", target)
+            cal.insert(1, "feature_set", feature_set)
+            cal.insert(2, "model_variant", model_variant)
+            cal.insert(3, "calibration_ece", calibration_ece)
+            calibration_rows.extend(cal.to_dict("records"))
+        calibration_table = pd.DataFrame(calibration_rows)
+        calibration_table.to_csv(
+            OUTPUT_DIR / "holdout_calibration_points.csv", index=False
+        )
+
+        for target in TARGETS_TO_RUN:
+            save_endpoint_calibration_grid(target, calibration_table)
+
+        if RUN_FINAL_MODELS and not holdout_model_summary.empty:
+            for _, model_row in holdout_model_summary.iterrows():
+                save_shap_feature_importance_plot(
+                    model_row["target"],
+                    model_row["feature_set"],
+                    model_row.get("model_variant", MODEL_VARIANT_ORIGINAL),
+                )
+    elif RUN_HOLDOUT_EVALUATION:
+        pd.DataFrame(
+            columns=[
+                "target",
+                "feature_set",
+                "model_variant",
+                "mean_predicted_probability",
+                "observed_event_rate",
+                "observed_event_rate_lower",
+                "observed_event_rate_upper",
+                "event_n",
+                "n",
+                "ci_level",
+                "ci_method",
+                "calibration_ece",
+            ]
+        ).to_csv(OUTPUT_DIR / "holdout_calibration_points.csv", index=False)

@@ -1,6 +1,5 @@
 """Discrimination, calibration, threshold, and bootstrap metrics."""
 
-from . import targets as _targets  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     IsotonicRegression,
     LogisticRegression,

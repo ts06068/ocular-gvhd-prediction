@@ -1,6 +1,5 @@
 """Frozen holdout and development split construction."""
 
-from . import preprocessing as _preprocessing  # noqa: F401 - preserve pipeline stage order.
 from .utils import (
     RepeatedStratifiedKFold,
     StratifiedKFold,
