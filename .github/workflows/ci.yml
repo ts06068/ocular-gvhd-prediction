@@ -20,9 +20,6 @@ jobs:
     timeout-minutes: 30
     env:
       MPLBACKEND: Agg
-      MPLCONFIGDIR: ${{ runner.temp }}/matplotlib
-      NUMBA_CACHE_DIR: ${{ runner.temp }}/numba
-      XDG_CACHE_HOME: ${{ runner.temp }}/cache
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       PIP_NO_INPUT: "1"
       PYTHONDONTWRITEBYTECODE: "1"
@@ -49,6 +46,10 @@ jobs:
       - name: Check formatting
         run: ruff format --no-cache --check src scripts tests
       - name: Test
+        env:
+          MPLCONFIGDIR: ${{ runner.temp }}/matplotlib
+          NUMBA_CACHE_DIR: ${{ runner.temp }}/numba
+          XDG_CACHE_HOME: ${{ runner.temp }}/cache
         run: python -B -m unittest discover -s tests -v
 
   build:

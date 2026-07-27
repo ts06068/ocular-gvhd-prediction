@@ -166,6 +166,9 @@ class ReleaseTests(unittest.TestCase):
         for analysis_entry_point in ("run_primary.py", "run_prophylaxis.py"):
             self.assertNotIn(analysis_entry_point, workflow)
 
+        job_level_configuration = workflow.split("    steps:", maxsplit=1)[0]
+        self.assertNotIn("${{ runner.", job_level_configuration)
+
     def test_every_python_source_compiles_without_creating_pycache(self):
         paths = sorted(ROOT.rglob("*.py"))
         self.assertTrue(paths)
