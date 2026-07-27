@@ -29,4 +29,9 @@ Use Python 3.12.3, then run `python -m pip install -r requirements.txt` and `pyt
 
 ## How to run
 
-Keep `dataset_v2.xlsx` and `frozen_test_split_manifest.csv` outside this repository, set `XGB_V2_DATA_PATH` and `XGB_V2_FROZEN_TEST_SPLIT_MANIFEST` to their local paths, then run `python scripts/run_primary.py` or `python scripts/run_prophylaxis.py`.
+```powershell
+$env:XGB_V2_DATA_PATH = "D:\data\dataset_v2.xlsx"
+$env:XGB_V2_FROZEN_TEST_SPLIT_MANIFEST = "D:\data\frozen_test_split_manifest.csv"
+python scripts/run_primary.py
+python scripts/run_prophylaxis.py  # Optional secondary analysis
+```

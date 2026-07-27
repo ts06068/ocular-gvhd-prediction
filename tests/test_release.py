@@ -64,7 +64,14 @@ class ReleaseTests(unittest.TestCase):
                 "## How to run",
             ],
         )
-        self.assertLessEqual(len(readme.splitlines()), 32)
+        how_to_run = readme.split("## How to run\n\n", maxsplit=1)[1]
+        self.assertTrue(how_to_run.startswith("```powershell\n"))
+        self.assertTrue(how_to_run.rstrip().endswith("```"))
+        self.assertIn("$env:XGB_V2_DATA_PATH", how_to_run)
+        self.assertIn("$env:XGB_V2_FROZEN_TEST_SPLIT_MANIFEST", how_to_run)
+        self.assertIn("python scripts/run_primary.py", how_to_run)
+        self.assertIn("python scripts/run_prophylaxis.py", how_to_run)
+        self.assertLessEqual(len(readme.splitlines()), 38)
 
     def test_notebooks_are_thin_wrappers(self):
         paths = sorted((ROOT / "notebooks").glob("*.ipynb"))
