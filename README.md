@@ -14,10 +14,14 @@ Develop and internally validate pretransplant, D+30, D+60, and D+90 XGBoost mode
 
 ## Code structure
 
-- `runner.py` selects a profile, and `pipeline.py` executes the analysis stages in order.
-- `profiles.py` defines the two analysis profiles; `config.py` resolves paths and runtime options.
-- `data.py`, `targets.py`, `preprocessing.py`, `splitting.py`, and `tuning.py` prepare the data and models.
-- `evaluation.py`, `finalization.py`, `reporting.py`, `diagnostics.py`, and `panels.py` evaluate models and write outputs.
+`scripts/run_primary.py` and `scripts/run_prophylaxis.py` are thin entry points to the same pipeline.
+
+- `src/ogvhd_prediction/runner.py`: selects the requested analysis profile without loading cohort data.
+- `src/ogvhd_prediction/pipeline.py`: imports and executes the modeling stages in a fixed order.
+- `src/ogvhd_prediction/profiles.py` and `config.py`: preserve profile settings and resolve runtime paths.
+- `src/ogvhd_prediction/data.py`, `targets.py`, and `splitting.py`: build landmark outcomes and patient-level partitions.
+- `src/ogvhd_prediction/preprocessing.py`, `tuning.py`, and `explainability.py`: preprocess, tune XGBoost, and rank features.
+- `src/ogvhd_prediction/evaluation.py`, `finalization.py`, `reporting.py`, `diagnostics.py`, and `panels.py`: evaluate holdouts and save outputs.
 
 ## Environment
 
