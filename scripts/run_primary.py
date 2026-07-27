@@ -3,6 +3,6 @@
 from ogvhd_prediction import run_analysis
 
 
-# Keep the primary CLI thin so scripts and notebooks execute the same pipeline.
+# Keep this entry point thin; the shared pipeline owns the analysis.
 if __name__ == "__main__":
     run_analysis("primary")

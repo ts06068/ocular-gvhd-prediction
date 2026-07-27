@@ -770,8 +770,7 @@ def threshold_candidate_values(y_prob):
             "Threshold selection requires at least one finite probability."
         )
     observed = np.clip(observed, 0.0, 1.0)
-    # ``>= threshold`` needs one explicit state above the largest observed
-    # score so that predicting no positives is represented in the audit grid.
+    # Add a threshold above max(score) so the audit can represent "predict none."
     predict_none_boundary = np.nextafter(float(observed.max()), np.inf)
     return np.unique(
         np.concatenate(
@@ -864,7 +863,7 @@ def optimize_threshold(y_true, y_prob, objective):
     return best_threshold, best_score
 
 
-# Select operating thresholds from development probabilities; test labels remain evaluation-only.
+# Pick operating thresholds from development predictions only.
 def select_threshold_from_oof(y_oof, prob_oof, calibration_prob=None):
     calibration_metrics = None
     if calibration_prob is not None:

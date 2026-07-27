@@ -3,6 +3,6 @@
 from ogvhd_prediction import run_analysis
 
 
-# This entry point changes only the profile; all modeling logic remains shared.
+# Select the prophylaxis profile here; keep its modeling logic in the shared pipeline.
 if __name__ == "__main__":
     run_analysis("prophylaxis")

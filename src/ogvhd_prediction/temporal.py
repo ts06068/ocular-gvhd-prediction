@@ -279,7 +279,7 @@ def write_temporal_landmark_wrapper(
     }
 
 
-# Choose temporal ensembles using development evidence before calculating test metrics.
+# Select temporal ensembles on development data; inspect test metrics only afterward.
 def apply_cumulative_landmark_prediction_ensemble(
     holdout_results_df,
     holdout_predictions_df,

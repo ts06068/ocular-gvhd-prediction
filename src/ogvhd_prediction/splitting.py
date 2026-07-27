@@ -187,7 +187,7 @@ def integer_override_for_analysis(overrides, target_name, feature_name, default)
 
 
 def modeling_method_for_target(target_name):
-    # Every endpoint in this notebook is intentionally trained with XGBoost.
+    # Keep this hook: downstream audits record the model family for every endpoint.
     return "xgboost"
 
 
@@ -303,7 +303,7 @@ def analysis_seed(target_name, feature_name):
     )
 
 
-# Cache assignments per run so every landmark shares its endpoint-level test cohort.
+# Cache one endpoint split per run; every landmark must reuse the same test patients.
 SOURCE_SPLIT_CACHE = {}
 SELECTED_DEVELOPMENT_SPLIT_SEEDS = {}
 SPLIT_SEED_SEARCH_ROWS = []

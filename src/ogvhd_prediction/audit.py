@@ -74,7 +74,7 @@ def _audit_close(left, right, atol=1e-10):
     )
 
 
-# Audit rows verify that each reported model followed the prespecified selection path.
+# Verify that every reported model follows the prespecified selection path.
 def build_model_optimization_audit(
     results,
     strategy_candidates,
@@ -505,8 +505,7 @@ def build_model_optimization_audit(
                     np.allclose(
                         reported_values,
                         expected_reported_values,
-                        # XGBoost probabilities are commonly float32; saving
-                        # both p and 1-p can differ by a few 1e-8 after casting.
+                        # Allow float32 round-off when checking saved p and 1-p pairs.
                         atol=1e-7,
                         rtol=0.0,
                         equal_nan=False,
@@ -1020,8 +1019,7 @@ def run_development_split_seed_search():
     for target_name in TARGETS_TO_RUN:
         spec = TARGET_DEFINITIONS[target_name]
         if AGVHD_XGB_REPRODUCTION_PROFILE and target_name.startswith("aGVHD_"):
-            # Preserve the archived development partition for exact XGBoost
-            # reproduction; current test labels are not searched.
+            # Reuse the archived development split; never search current test labels.
             candidate_seeds = [int(fixed_split_seed(target_name)) + 17]
         elif target_name in DEVELOPMENT_SPLIT_SEED_OVERRIDES:
             candidate_seeds = [int(DEVELOPMENT_SPLIT_SEED_OVERRIDES[target_name])]

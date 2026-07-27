@@ -90,7 +90,7 @@ from .temporal import (
 )
 
 
-# Rank features on training data, then retune the reduced model independently.
+# Rank features on training data only, then tune the reduced model from scratch.
 def evaluate_simplified_model_variant(original_row, original_strategy_row):
     target_name = original_row["target"]
     feature_name = original_row["feature_set"]
@@ -393,9 +393,8 @@ def evaluate_simplified_model_variant(original_row, original_strategy_row):
             ignore_index=True,
         )
 
-    # Classification and thresholding use raw scores. Recalibrated scores are
-    # diagnostics only, so a threshold can never cross incompatible calibration
-    # maps between validation and the final refit.
+    # Threshold raw scores only. Validation and final refits use different
+    # calibration maps, so one calibrated cutoff cannot serve both.
     probability_source_arrays = {
         "raw": (train_cv_raw_prob, val_raw_prob, test_raw_prob),
     }
@@ -491,8 +490,8 @@ def evaluate_simplified_model_variant(original_row, original_strategy_row):
         selected_test_diagnostic_calibrator = test_diagnostic_calibrator
 
     if selected_report["probability_source"].endswith("_inverted"):
-        # Stored calibration diagnostics must be calculated from the same
-        # orientation-corrected calibration_probability written to predictions.
+        # Compute diagnostics from the same orientation-corrected probabilities
+        # written to the prediction table.
         calibrated_val_metrics = classification_metrics(
             y_val,
             selected_val_calibration_prob,

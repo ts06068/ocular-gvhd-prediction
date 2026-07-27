@@ -21,7 +21,7 @@ from .config import (
 )
 
 
-# Fit missingness filtering and MICE within each fold to prevent preprocessing leakage.
+# Fit this transformer inside each fold; a global fit would leak missingness patterns.
 class MissingnessFilter(BaseEstimator, TransformerMixin):
     def __init__(self, cutoff=0.20):
         self.cutoff = cutoff
@@ -341,9 +341,8 @@ def make_xgb_pipeline(seed):
     return Pipeline(
         [
             ("missingness", MissingnessFilter(cutoff=HIGH_MISSING_CUTOFF)),
-            # IterativeImputer is deterministic with sample_posterior=False. A
-            # fixed preprocessing seed permits exact cache reuse across XGBoost
-            # trials while the model itself retains its original trial seed.
+            # Fix the imputation seed so deterministic transforms share a cache;
+            # XGBoost trials still keep their own model seeds.
             (
                 "preprocess",
                 DataFramePreprocessor(

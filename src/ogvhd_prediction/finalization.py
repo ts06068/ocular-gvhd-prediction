@@ -42,7 +42,7 @@ from .evaluation import (
 )
 
 
-# Import-safe artifacts are replaced by run_stage().
+# Keep imports side-effect free; run_stage() replaces these empty artifacts.
 holdout_results = pd.DataFrame()
 holdout_threshold_candidates = pd.DataFrame()
 holdout_train_cv_threshold_candidates = pd.DataFrame()
@@ -61,7 +61,7 @@ holdout_optimization_audit = pd.DataFrame()
 holdout_bootstrap_ci = pd.DataFrame()
 
 
-# Apply simplified and temporal post-processing before exporting final performance tables.
+# Finish simplified and temporal variants before exporting frozen result tables.
 def run_stage():
     """Assemble, audit, and save evaluation artifacts."""
     global holdout_best_params, holdout_bootstrap_ci, holdout_feature_source_candidates

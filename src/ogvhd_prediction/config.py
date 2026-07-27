@@ -39,9 +39,8 @@ OUTPUT_DIR = Path(os.getenv("XGB_V2_OUTPUT_DIR", PROFILE.default_output_dir))
 MODEL_DIR = OUTPUT_DIR / "final_models"
 PLOT_DIR = OUTPUT_DIR / "plots"
 
-# sklearn Pipeline caches only deterministic preprocessing steps; XGBoost is
-# always refit with the original per-trial seed. The versioned, data-specific
-# directory prevents stale transforms from being reused after code/data changes.
+# Cache deterministic preprocessing only; refit XGBoost with each trial seed.
+# Version cache paths by code and data to reject stale transforms.
 PIPELINE_CACHE_ENABLED = os.getenv("XGB_V2_PIPELINE_CACHE", "1") == "1"
 PIPELINE_CACHE_VERSION = "v1"
 PIPELINE_CACHE_DIR = Path(
@@ -61,9 +60,8 @@ SPLIT_RANDOM_STATE_OVERRIDES = parse_seed_overrides(
     DEFAULT_SPLIT_RANDOM_STATE_OVERRIDES,
 )
 DEFAULT_FIXED_SPLIT_SEED_OVERRIDES = {
-    # One prespecified test cohort per aGVHD endpoint is shared across all
-    # landmarks. Do not add feature-level keys here: they make longitudinal
-    # performance comparisons depend on different held-out transplantation episodes.
+    # Share one prespecified endpoint-level test cohort across all landmarks.
+    # Feature-level keys would invalidate longitudinal comparisons.
     "aGVHD_any": 123,
     "aGVHD_severe": 599,
     "oGVHD_any": 608,
@@ -239,10 +237,8 @@ XGB_BOOSTER_CANDIDATES = env_list(
     "gbtree",
 )
 
-# Reproduce the prespecified XGBoost configuration that generated the archived
-# aGVHD holdout results. These are frozen training-only Optuna selections from
-# the historical run; no current validation or test labels are used to create
-# or alter this list.
+# Freeze training-only Optuna choices from the archived aGVHD runs.
+# Never rebuild these presets from current validation or test labels.
 AGVHD_XGB_REPRODUCTION_PROFILE = (
     os.getenv("XGB_V2_AGVHD_XGB_REPRODUCTION_PROFILE", "1") == "1"
 )
@@ -1002,7 +998,7 @@ def _print_runtime_config():
         )
 
 
-# Defer hashing and directory creation until the pipeline explicitly starts a run.
+# Resolve file hashes and create directories only when a run starts.
 def initialize_runtime():
     """Resolve file-backed settings and create run output directories."""
     global AGVHD_XGB_REPRODUCTION_DATA_MATCH, DATA_SHA256

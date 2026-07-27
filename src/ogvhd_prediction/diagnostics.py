@@ -859,9 +859,7 @@ def model_bundle_for(target, feature_set, model_variant=MODEL_VARIANT_ORIGINAL):
     with open(model_path, "rb") as f:
         bundle = cloudpickle.load(f)
     if bundle.get("artifact_type") == "temporal_landmark_ensemble_wrapper":
-        # SHAP remains a member-model explanation. Resolve the current
-        # landmark's immutable base bundle from the portable wrapper rather
-        # than treating the orchestration wrapper as an estimator.
+        # Explain the landmark member, not its orchestration-only wrapper.
         member_artifacts = bundle.get("ordered_member_artifacts", [])
         current_member = next(
             (
@@ -1024,7 +1022,7 @@ def save_shap_feature_importance_plot(
     show_plot()
 
 
-# Diagnostic plots consume finalized probabilities and never participate in model selection.
+# Generate diagnostics after selection; plots must not feed back into the model.
 def run_stage():
     """Configure plotting and generate endpoint diagnostics."""
 

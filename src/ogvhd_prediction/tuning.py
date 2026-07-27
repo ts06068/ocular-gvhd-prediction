@@ -514,8 +514,8 @@ def validation_strategy_candidates(
         )
 
     for top_k in ensemble_top_k_candidates:
-        # top_1 is identical to single_trial_rank_1 and only adds a second
-        # validation look at the same hyperparameters.
+        # Skip top-1: it duplicates rank-1 and tests the same parameters twice
+        # against validation.
         if int(top_k) == 1:
             continue
         trial_subset = completed_trials[: int(top_k)]
@@ -1259,7 +1259,7 @@ def compute_tuning_cv_scores(
     search_n_jobs,
     cache_signature,
 ):
-    # cache_signature is intentionally part of the joblib key.
+    # Keep this argument: joblib hashes it before the function runs.
     del cache_signature
     model = make_pipeline_for_params(model_seed, params)
     model.set_params(**params)
@@ -1286,7 +1286,7 @@ CACHED_TUNING_CV_SCORES = (
 )
 
 
-# Optuna sees training-fold scores only; validation selects among fitted strategies later.
+# Give Optuna training-fold scores only; reserve validation for strategy selection.
 def tune_hyperparameters(
     X,
     y,

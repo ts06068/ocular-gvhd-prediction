@@ -77,7 +77,7 @@ from .temporal import (
 from .audit import run_development_split_seed_search
 
 
-# Import-safe result containers are reset by run_stage().
+# Keep imports side-effect free; run_stage() replaces these empty results.
 development_split_seed_search = pd.DataFrame()
 holdout_rows = []
 holdout_threshold_candidate_rows = []
@@ -137,7 +137,7 @@ def run_stage():
     holdout_skipped_rows = []
 
     if RUN_HOLDOUT_EVALUATION:
-        # Preserve target-major, landmark-minor order because seeds and artifact rows depend on it.
+        # Keep target-major order: seed use and artifact row order depend on it.
         for target_name in TARGETS_TO_RUN:
             spec = TARGET_DEFINITIONS[target_name]
 
@@ -417,8 +417,7 @@ def run_stage():
                         ignore_index=True,
                     )
 
-                # Classification and thresholding use raw scores; recalibration is
-                # reserved for calibration diagnostics and plots.
+                # Raw scores drive labels and thresholds. Calibration is diagnostic only.
                 probability_source_arrays = {
                     "raw": (train_cv_raw_prob, val_raw_prob, test_raw_prob),
                 }
@@ -526,8 +525,7 @@ def run_stage():
                     selected_validation_diagnostic_calibrator = diagnostic_calibrator
                     selected_test_diagnostic_calibrator = test_diagnostic_calibrator
                 if selected_report["probability_source"].endswith("_inverted"):
-                    # Keep stored diagnostics aligned with the inverted
-                    # calibration_probability emitted for validation and test.
+                    # Invert diagnostic probabilities with the selected score source.
                     calibrated_val_metrics = classification_metrics(
                         y_val,
                         selected_val_calibration_prob,

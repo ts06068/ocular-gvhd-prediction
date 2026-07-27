@@ -1,6 +1,6 @@
 """Shared imports and small utility helpers."""
 
-# Re-exported dependencies form the shared import facade.
+# Keep this facade stable; stage modules depend on these re-exported names.
 # ruff: noqa: F401
 
 from pathlib import Path
@@ -145,7 +145,7 @@ def canonical_split_identifier(value):
     return str(value).strip()
 
 
-# Hash identifiers only for split matching; identifiers never enter the predictor matrix.
+# Hash identifiers for split matching only; never add the hashes to model features.
 def make_episode_split_hashes(data):
     required = ["Patient ID", "Transplant Date"]
     missing = [column for column in required if column not in data.columns]

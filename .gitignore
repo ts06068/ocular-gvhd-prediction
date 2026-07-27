@@ -38,7 +38,7 @@
 !/data/README.md
 !/data/sample.xlsx
 
-# Defense in depth for clinical data, derived row-level artifacts, and secrets.
+# Block clinical data, row-level artifacts, and secrets even if allowlists change.
 /.env*
 /dataset*.xlsx
 /frozen_test_split_manifest.csv

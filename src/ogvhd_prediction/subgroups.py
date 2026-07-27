@@ -344,7 +344,7 @@ def bootstrap_subgroup_metric_cis(
     return output
 
 
-# Subgroup estimates are descriptive and do not alter thresholds or fitted models.
+# Compute subgroups after selection; they must not change fits or thresholds.
 def calculate_test_subgroup_metrics(predictions, source_data):
     if predictions.empty:
         return pd.DataFrame(

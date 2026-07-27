@@ -13,7 +13,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Keep automated checks data-free; the modeling entry points are never executed here.
+# CI checks source and packaging. It never runs a modeling entry point.
 jobs:
   test:
     runs-on: ubuntu-24.04

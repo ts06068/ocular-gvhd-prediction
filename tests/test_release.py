@@ -145,7 +145,7 @@ class ReleaseTests(unittest.TestCase):
             f"Python files missing a reader-oriented comment: {missing_comments}",
         )
 
-    # CI validates code integrity without loading clinical data or rerunning models.
+    # CI checks source integrity; it must not load clinical data or run models.
     def test_ci_workflow_lints_tests_and_builds_without_data_access(self):
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"
@@ -351,7 +351,7 @@ class ReleaseTests(unittest.TestCase):
             self.assertTrue(callable(profiles.get_profile))
             self.assertTrue(callable(runner.run_analysis))
 
-    # Guard against accidental clinical-data access during ordinary module imports.
+    # Imports must not read clinical data, write files, or train models.
     def test_internal_module_imports_do_not_read_write_or_train(self):
         import cloudpickle
         import joblib

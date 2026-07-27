@@ -19,7 +19,7 @@ from .config import (
     USE_FROZEN_TEST_SPLIT_MANIFEST,
 )
 
-# Import-safe placeholders are populated by run_stage().
+# Keep imports data-free; run_stage() replaces these placeholders.
 df = pd.DataFrame()
 SPLIT_EPISODE_HASHES = pd.Series(dtype="string")
 FROZEN_TEST_SPLIT_MANIFEST_SHA256 = None
@@ -101,10 +101,8 @@ def apply_sequential_pre_mice_complete_case_filter(data, steps):
     return filtered.reset_index(drop=True), pd.DataFrame(audit_rows)
 
 
-# Do not remove patients before modeling.  Mandatory covariate missingness is
-# retained and handled by the fold-safe missingness filter plus MICE pipeline.
-# Pre-MICE complete-case exclusion changes the cohort and can materially alter
-# the held-out class distribution and discrimination estimates.
+# Keep every patient. Fold-local filtering and MICE handle missing covariates.
+# Complete-case filtering here would change the holdout cohort and its estimates.
 
 
 def add_landmark_labs(preoperative_columns, *lab_groups):
@@ -165,7 +163,7 @@ def make_feature_sets(feature_sets_to_include=None):
     return feature_sets
 
 
-# Cohort I/O is staged so importing feature helpers cannot touch clinical files.
+# Delay cohort I/O until execution; feature-helper imports must stay data-free.
 def run_stage():
     """Load the cohort and build landmark feature sets."""
     global ALL_FEATURE_SETS, BASELINE_LAB_FEATURES, BASE_CLINICAL_FEATURES
