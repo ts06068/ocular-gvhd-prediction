@@ -57,11 +57,12 @@ class ReleaseTests(unittest.TestCase):
             [
                 "## Study Objective",
                 "## Folder structure",
+                "## Code structure",
                 "## Environment",
                 "## How to run",
             ],
         )
-        self.assertLessEqual(len(readme.splitlines()), 24)
+        self.assertLessEqual(len(readme.splitlines()), 32)
 
     def test_notebooks_are_thin_wrappers(self):
         paths = sorted((ROOT / "notebooks").glob("*.ipynb"))

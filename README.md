@@ -12,6 +12,13 @@ Develop and internally validate pretransplant, D+30, D+60, and D+90 XGBoost mode
 - `data/sample.xlsx`: 24-row synthetic workbook for schema inspection only.
 - `tests/`: release-integrity checks.
 
+## Code structure
+
+- `runner.py` selects a profile, and `pipeline.py` executes the analysis stages in order.
+- `profiles.py` defines the two analysis profiles; `config.py` resolves paths and runtime options.
+- `data.py`, `targets.py`, `preprocessing.py`, `splitting.py`, and `tuning.py` prepare the data and models.
+- `evaluation.py`, `finalization.py`, `reporting.py`, `diagnostics.py`, and `panels.py` evaluate models and write outputs.
+
 ## Environment
 
 Use Python 3.12.3, then run `python -m pip install -r requirements.txt` and `python -m pip install -e .`.
