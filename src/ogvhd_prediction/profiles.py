@@ -29,6 +29,7 @@ class ProfileDefaults:
     include_prophylaxis: bool
 
 
+# Keep profile deltas ordered so conversion to dictionaries preserves legacy precedence.
 PRIMARY = ProfileDefaults(
     key="primary",
     model_profile_name="v2",

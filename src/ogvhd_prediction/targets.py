@@ -27,6 +27,7 @@ def outcome_event_days(event_date_column):
     return (event_date - transplant_date).dt.days
 
 
+# Landmark risk sets exclude target events occurring on or before prediction time.
 def make_target_masks(
     stage_column,
     positive_rule,

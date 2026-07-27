@@ -30,6 +30,7 @@ from .finalization import (
 )
 
 
+# Reporting derives from frozen holdout rows and never feeds back into model selection.
 def run_stage():
     """Build and save performance summaries."""
     global auroc_check, holdout_metric_summary, holdout_severity_order_audit

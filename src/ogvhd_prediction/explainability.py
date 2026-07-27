@@ -138,6 +138,7 @@ def shap_base_importance_for_pipeline(pipeline, X):
     return importance
 
 
+# Estimate SHAP ranks from training folds only to keep the held-out cohort untouched.
 def cv_shap_top_base_features(
     X,
     y,

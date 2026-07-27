@@ -74,6 +74,7 @@ def _audit_close(left, right, atol=1e-10):
     )
 
 
+# Audit rows verify that each reported model followed the prespecified selection path.
 def build_model_optimization_audit(
     results,
     strategy_candidates,

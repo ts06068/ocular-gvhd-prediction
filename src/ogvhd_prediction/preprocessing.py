@@ -21,6 +21,7 @@ from .config import (
 )
 
 
+# Fit missingness filtering and MICE within each fold to prevent preprocessing leakage.
 class MissingnessFilter(BaseEstimator, TransformerMixin):
     def __init__(self, cutoff=0.20):
         self.cutoff = cutoff

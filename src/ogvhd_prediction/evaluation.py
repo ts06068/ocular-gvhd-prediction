@@ -137,6 +137,7 @@ def run_stage():
     holdout_skipped_rows = []
 
     if RUN_HOLDOUT_EVALUATION:
+        # Preserve target-major, landmark-minor order because seeds and artifact rows depend on it.
         for target_name in TARGETS_TO_RUN:
             spec = TARGET_DEFINITIONS[target_name]
 

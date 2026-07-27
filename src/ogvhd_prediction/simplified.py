@@ -90,6 +90,7 @@ from .temporal import (
 )
 
 
+# Rank features on training data, then retune the reduced model independently.
 def evaluate_simplified_model_variant(original_row, original_strategy_row):
     target_name = original_row["target"]
     feature_name = original_row["feature_set"]

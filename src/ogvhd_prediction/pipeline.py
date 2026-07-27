@@ -11,6 +11,7 @@ from typing import Any
 from .profiles import ProfileDefaults, ProfileName, get_profile
 
 
+# This order mirrors the archived notebook and preserves every stage dependency.
 MODULE_ORDER = (
     "config",
     "data",

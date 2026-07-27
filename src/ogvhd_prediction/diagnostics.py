@@ -1024,6 +1024,7 @@ def save_shap_feature_importance_plot(
     show_plot()
 
 
+# Diagnostic plots consume finalized probabilities and never participate in model selection.
 def run_stage():
     """Configure plotting and generate endpoint diagnostics."""
 

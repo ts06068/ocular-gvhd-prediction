@@ -573,6 +573,7 @@ def save_gvhd_shap_panel(gvhd_label, targets):
     save_panel_figure(fig, f"panel_shap_{slugify(gvhd_label).lower()}.png")
 
 
+# Assemble cross-endpoint panels only after all endpoint diagnostics are finalized.
 def save_all_panel_plots():
     for gvhd_label, targets in PANEL_GVHD_ENDPOINTS.items():
         save_gvhd_discrimination_panel(gvhd_label, targets, "roc")

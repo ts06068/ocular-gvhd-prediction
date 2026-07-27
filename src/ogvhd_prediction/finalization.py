@@ -61,6 +61,7 @@ holdout_optimization_audit = pd.DataFrame()
 holdout_bootstrap_ci = pd.DataFrame()
 
 
+# Apply simplified and temporal post-processing before exporting final performance tables.
 def run_stage():
     """Assemble, audit, and save evaluation artifacts."""
     global holdout_best_params, holdout_bootstrap_ci, holdout_feature_source_candidates

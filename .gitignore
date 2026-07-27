@@ -4,6 +4,12 @@
 !/requirements.txt
 !/pyproject.toml
 
+!/.github/
+/.github/*
+!/.github/workflows/
+/.github/workflows/*
+!/.github/workflows/ci.yml
+
 !/src/
 /src/*
 !/src/xgboost_v2.py

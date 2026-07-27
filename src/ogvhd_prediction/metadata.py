@@ -179,6 +179,7 @@ def run_stage():
         index=False,
     )
 
+    # Capture the effective settings, including environment overrides, beside every result set.
     run_config = {
         "data_path": str(DATA_PATH),
         "data_sha256": DATA_SHA256,

@@ -303,6 +303,7 @@ def analysis_seed(target_name, feature_name):
     )
 
 
+# Cache assignments per run so every landmark shares its endpoint-level test cohort.
 SOURCE_SPLIT_CACHE = {}
 SELECTED_DEVELOPMENT_SPLIT_SEEDS = {}
 SPLIT_SEED_SEARCH_ROWS = []

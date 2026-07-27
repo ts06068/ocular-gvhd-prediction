@@ -1002,6 +1002,7 @@ def _print_runtime_config():
         )
 
 
+# Defer hashing and directory creation until the pipeline explicitly starts a run.
 def initialize_runtime():
     """Resolve file-backed settings and create run output directories."""
     global AGVHD_XGB_REPRODUCTION_DATA_MATCH, DATA_SHA256

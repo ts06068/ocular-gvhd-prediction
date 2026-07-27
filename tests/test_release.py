@@ -2,10 +2,12 @@ import ast
 import builtins
 import hashlib
 import importlib
+import io
 import json
 import os
 import sys
 import tempfile
+import tokenize
 import types
 import unittest
 from collections import Counter
@@ -105,6 +107,64 @@ class ReleaseTests(unittest.TestCase):
                 self.assertIsNone(code.get("execution_count"), path.name)
 
             self.assertLessEqual(total_nonblank_code_lines, 10, path.name)
+
+    def test_every_python_file_has_a_reader_comment(self):
+        python_files = sorted(
+            path
+            for folder in (SRC, ROOT / "scripts", ROOT / "tests")
+            for path in folder.rglob("*.py")
+        )
+        self.assertTrue(python_files)
+
+        missing_comments = []
+        for path in python_files:
+            source = path.read_text(encoding="utf-8")
+            comments = [
+                token.string.removeprefix("#").strip()
+                for token in tokenize.generate_tokens(io.StringIO(source).readline)
+                if token.type == tokenize.COMMENT
+            ]
+            reader_comments = [
+                comment
+                for comment in comments
+                if len(comment.split()) >= 6
+                and not comment.casefold().startswith(("noqa", "ruff", "type:"))
+            ]
+            if not reader_comments:
+                missing_comments.append(str(path.relative_to(ROOT)))
+
+        self.assertFalse(
+            missing_comments,
+            f"Python files missing a reader-oriented comment: {missing_comments}",
+        )
+
+    # CI validates code integrity without loading clinical data or rerunning models.
+    def test_ci_workflow_lints_tests_and_builds_without_data_access(self):
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        required_fragments = (
+            "push:",
+            "pull_request:",
+            "workflow_dispatch:",
+            "contents: read",
+            "ubuntu-24.04",
+            "actions/checkout@v7",
+            "persist-credentials: false",
+            "actions/setup-python@v7",
+            'python-version: "3.12.3"',
+            "python -m pip install -r requirements.txt",
+            "python -m pip install --no-deps -e .",
+            "ruff check --no-cache src scripts tests",
+            "ruff format --no-cache --check src scripts tests",
+            "python -B -m unittest discover -s tests -v",
+            "python -m build",
+        )
+        for fragment in required_fragments:
+            self.assertIn(fragment, workflow)
+
+        for analysis_entry_point in ("run_primary.py", "run_prophylaxis.py"):
+            self.assertNotIn(analysis_entry_point, workflow)
 
     def test_every_python_source_compiles_without_creating_pycache(self):
         paths = sorted(ROOT.rglob("*.py"))
@@ -281,6 +341,7 @@ class ReleaseTests(unittest.TestCase):
             self.assertTrue(callable(profiles.get_profile))
             self.assertTrue(callable(runner.run_analysis))
 
+    # Guard against accidental clinical-data access during ordinary module imports.
     def test_internal_module_imports_do_not_read_write_or_train(self):
         import cloudpickle
         import joblib

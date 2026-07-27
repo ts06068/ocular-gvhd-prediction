@@ -864,6 +864,7 @@ def optimize_threshold(y_true, y_prob, objective):
     return best_threshold, best_score
 
 
+# Select operating thresholds from development probabilities; test labels remain evaluation-only.
 def select_threshold_from_oof(y_oof, prob_oof, calibration_prob=None):
     calibration_metrics = None
     if calibration_prob is not None:

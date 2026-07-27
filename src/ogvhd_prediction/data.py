@@ -165,6 +165,7 @@ def make_feature_sets(feature_sets_to_include=None):
     return feature_sets
 
 
+# Cohort I/O is staged so importing feature helpers cannot touch clinical files.
 def run_stage():
     """Load the cohort and build landmark feature sets."""
     global ALL_FEATURE_SETS, BASELINE_LAB_FEATURES, BASE_CLINICAL_FEATURES

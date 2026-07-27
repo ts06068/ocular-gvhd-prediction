@@ -1286,6 +1286,7 @@ CACHED_TUNING_CV_SCORES = (
 )
 
 
+# Optuna sees training-fold scores only; validation selects among fitted strategies later.
 def tune_hyperparameters(
     X,
     y,
